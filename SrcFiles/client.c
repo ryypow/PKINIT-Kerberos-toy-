@@ -87,6 +87,7 @@ int main(int argc, char *argv[]) {
 	FILE *f;
 
 	f = fopen(client_temp_sk_path, "rb");
+	//verify temp client sk exists
 	if (!f) {
 		fprintf("Temporary Client Private key does not exist: %s\n", client_temp_sk_path);
 		exit(EXIT_FAILURE);
@@ -94,6 +95,7 @@ int main(int argc, char *argv[]) {
 	fclose(f);
 	
 	f = fopen(client_temp_pk_path, "rb");
+	//verify temp client PK exists
 	if (!f) {
 		fprintf("Temporary Client Public key does not exist: %s\n", client_temp_pk_path);
 		exit(EXIT_FAILURE);
@@ -130,6 +132,7 @@ int main(int argc, char *argv[]) {
 	//sign the temp public key using the clients permanent secret key
 	unsigned char *signed_client_temp_pk = ecdsa_sign_file_to_hex(client_sk_permanent, client_temp_pk_path, "Client_Signature.txt")
 
+	while
 
 
 

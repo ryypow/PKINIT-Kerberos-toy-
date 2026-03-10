@@ -1,0 +1,21 @@
+The client program must be executed with exactly three command-line arguments:
+temp
+- argv[1]: Path to the client temporary private key file (e.g., Client_temp_SK.txt)
+- argv[2]: Path to the client temporary public key file (e.g., Client_temp_PK.txt)
+- argv[3]: Path to the AS temporary public key file (e.g., AS_temp_PK.txt)
+
+
+2. Verify temporary client keys
+
+3. Sign the client temp public key
+    - ecdsa_sign_file_to_hex(<input.txt>, -argv[2], <output.txt>)
+
+4. AWAIT for Authentication Service
+    -AS:
+        - AS will verify client signature (signed from ecdsa helper from previous step)
+        - AS computes the ECDH shared secret key (Key_client_AS)
+    - client waits for existence of AS_REP.txt
+
+5. Client needs to compute ECDH shared secret, using the Key_Client_AS generated from AS
+6. AS builds the TGT
+7. Client receives AS_REP.txt

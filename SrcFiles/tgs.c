@@ -83,10 +83,10 @@ int main(int argc, char *argv[]) {
 	 * and exit gracefully.
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - Check existence of tgs_req_path
-	 *  - If missing, print required message and exit
-	 */
+	if (!file_exists("TGS_REQ.txt")) {
+		printf("TGS_REQ not created\n");
+		return EXIT_FAILURE;
+	}
 
 	printf("TGS_REQ received\n");
 
@@ -114,6 +114,7 @@ int main(int argc, char *argv[]) {
 	 *  - AES-decrypt the TGT
 	 *  - Treat the result as ASCII data
 	 */
+	char *tgs_req_text = read_line("TGS_REQ.txt", 1);
 
 	/* ------------------------------------------------------------
 	 * STEP 2: Parse client identity and Key_Client_TGS

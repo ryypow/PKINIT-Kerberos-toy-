@@ -80,10 +80,10 @@ int main(int argc, char *argv[]) {
 	 * and exit gracefully.
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - Check existence of app_req_path
-	 *  - If missing, print required message and exit
-	 */
+	if (!file_exists(app_req_path)) {
+		printf("Service not requested yet\n");
+		return EXIT_FAILURE;
+	}
 
 	printf("Service requested\n");
 
@@ -98,11 +98,12 @@ int main(int argc, char *argv[]) {
 	 * This key MUST be exactly 256 bits (32 bytes).
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - Read Key_TGS_App.txt (hex)
-	 *  - Validate that it is exactly 32 bytes
-	 *  - Abort on failure
-	 */
+	
+	unsigned char *key_tgs_app;
+	size_t key_tgs_app_length;
+	if (read_hex_file_bytes(key_tgs_app_path, &key_tgs_app, &key_tgs_app_length) == 0) {
+		return EXIT_FAILURE;
+	}
 
 	/* ------------------------------------------------------------
 	 * STEP 2: Decrypt Ticket_App
@@ -120,12 +121,22 @@ int main(int argc, char *argv[]) {
 	 *
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - Read line 1 from APP_REQ.txt
-	 *  - AES-decrypt using Key_TGS_App
-	 *  - Treat the result as ASCII data
-	 */
 
+	char *app_req_text = read_line(app_req_path, 1);
+	unsigned char *app_req_bytes;
+	size_t app_req_bytes_len;
+	hex_to_bytes(app_req_text, &app_req_bytes, &app_req_bytes_len);
+	printf("app_req_text: %s\n", app_req_text);
+	printf("app_req_bytes: %s\n", app_req_bytes);
+
+	unsigned char *plaintext;
+	int plaintext_length;
+	aes256_ecb_decrypt(key_tgs_app, app_req_bytes, (int)app_req_bytes_len, &plaintext, &plaintext_length);
+
+	// printf("key_tgs_app: %s\n", key_tgs_app);
+	// printf("plaintext: %s\n", plaintext);
+	// printf("plaintext_length: %d\n", plaintext_length);
+	
 	/* ------------------------------------------------------------
 	 * STEP 3: Parse client identity and Key_Client_App
 	 *
@@ -137,11 +148,26 @@ int main(int argc, char *argv[]) {
 	 *  - Key_Client_App is exactly 256 bits
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - Split the plaintext into clientID_1 and key hex
-	 *  - Convert Key_Client_App hex → raw bytes
-	 *  - Abort on malformed data
-	 */
+
+	 // need to abort on malformed data still
+	unsigned char *clientID_1 = malloc(7);
+	unsigned char *key_client_app = malloc(64);
+	for (int x = 0; x < plaintext_length; x++) {
+		if (x < 6) {
+			clientID_1[x] = plaintext[x];
+		}
+		else {
+			key_client_app[x-6] = plaintext[x];
+		}
+	}
+	// printf("client_id: %s\n", clientID_1);
+	// printf("key_client_app: %s\n", key_client_app);
+
+	unsigned char *key_client_app_bytes;
+	size_t key_client_app_bytes_len;
+	hex_to_bytes(key_client_app, &key_client_app_bytes, &key_client_app_bytes_len);
+	// printf("key_client_app_bytes: %s\n", key_client_app_bytes);
+	// printf("key_client_app_bytes_len: %d\n", (int)key_client_app_bytes_len);
 
 	/* ------------------------------------------------------------
 	 * STEP 4: Decrypt and verify Auth_Client_App
@@ -153,11 +179,18 @@ int main(int argc, char *argv[]) {
 	 *
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - Read line 2 from APP_REQ.txt
-	 *  - AES-decrypt using Key_Client_App
-	 *  - Interpret plaintext as clientID_2
-	 */
+
+	char *auth_client_app = read_line(app_req_path, 2);
+	unsigned char *auth_client_app_bytes;
+	size_t auth_client_app_bytes_len;
+	hex_to_bytes(auth_client_app, &auth_client_app_bytes, &auth_client_app_bytes_len);
+	// printf("auth_client_app: %s\n", auth_client_app);
+	// printf("auth_client_app_bytes: %s\n", auth_client_app_bytes);
+
+	unsigned char *clientID_2;
+	int clientID_2_length;
+	aes256_ecb_decrypt(key_client_app_bytes, auth_client_app_bytes, (int)auth_client_app_bytes_len, &clientID_2, &clientID_2_length);
+	// printf("client_id_2: %s\n", clientID_2);
 
 	/* ------------------------------------------------------------
 	 * STEP 5: Validate client identity
@@ -177,7 +210,11 @@ int main(int argc, char *argv[]) {
 	 *  - Compare the two client ID strings
 	 *  - Treat mismatch as authentication failure
 	 */
-
+	if (strcmp(clientID_1, clientID_2) != 0) {
+		printf("Authentication failure\n");
+		return EXIT_FAILURE;
+	}
+	
 	/* ------------------------------------------------------------
 	 * STEP 6: Write APP_REP.txt
 	 *
@@ -195,6 +232,7 @@ int main(int argc, char *argv[]) {
 	 *  - Write exactly:
 	 *        OK\n
 	 */
+	write_text_lines("APP_REP.txt", "OK", NULL, NULL);
 
 	return EXIT_SUCCESS;
 }

@@ -101,7 +101,8 @@ int main(int argc, char *argv[]) {
 		exit(EXIT_FAILURE);
 	}
 	fclose(f);
-
+//STEP 1: Sign Client temporary public key
+{
 	/* ------------------------------------------------------------
 	 * STEP 1: Sign Client temporary public key
 	 *
@@ -131,8 +132,9 @@ int main(int argc, char *argv[]) {
 
 	//sign the temp public key using the clients permanent secret key
 	unsigned char *signed_client_temp_pk = ecdsa_sign_file_to_hex(client_sk_permanent, client_temp_pk_path, "Client_Signature.txt")
-
-	
+}
+//STEP 2: Wait for AS response
+{
 	/* ------------------------------------------------------------
 	 * STEP 2: Wait for AS response
 	 *
@@ -155,6 +157,9 @@ int main(int argc, char *argv[]) {
 			return EXIT_FAILURE
 		}
 	}
+}
+//STEP 3: Derive Key_Client_AS
+{
 	/* ------------------------------------------------------------
 	 * STEP 3: Derive Key_Client_AS
 	 *
@@ -208,9 +213,10 @@ int main(int argc, char *argv[]) {
 			fpprintf(stderr, "shared secrets do not match!");
 		}		
 	}
-	/* ------------------------------------------------------------
-	 * STEP 4: Decrypt AS_REP
-	 *
+}
+//STEP 4: Decrypt AS_REP
+{
+	/*
 	 * AS_REP.txt is AES-256 encrypted using Key_Client_AS.
 	 *
 	 * After decryption, the plaintext contains:
@@ -231,11 +237,15 @@ int main(int argc, char *argv[]) {
 	//it is encrypted in the kdc using key_client_as ---> we will decrypt with the same
 	int as_rep_cipher_length;
 	unsigned char *asrep_cipher = Read_File("AS_REP.txt", &as_rep_cipher_length);
+	int plaintext_length;	
 	unsigned char *plaintext = NULL;
-	int plaintext_length;
 
-	int decrypt_success = aes256_ecb_decrypt(key_client_as_bytes, asrep_cipher, as_rep_cipher_length, plaintext, &plaintext_length);
 
+	int decrypt_success = aes256_ecb_decrypt(key_client_as_bytes, asrep_cipher, as_rep_cipher_length, &plaintext, &plaintext_length);
+	if(!decrypt_success) {
+		fprintf(stderr, "AS_REP decryption: FAILED\n")
+		return 1;
+	}
 	//copy first 32 bytes into key_client_tgs
 	unsigned char key_client_tgs[32];
 	memcpy(key_client_tgs, plaintext, 32); //destination, source, bytes
@@ -243,11 +253,15 @@ int main(int argc, char *argv[]) {
 
 
 	//copy [32:] bytes into key_client_tgt
-	int key_client_tgt_length = plaintext - 32; //not including the 32byte TGS
+	int key_client_tgt_length = plaintext_length - 32; //not including the 32byte TGS
 	unsigned char *key_client_tgt = malloc(key_client_tgt_length + 1);
 	memcpy(key_client_tgt, plaintext + 32, key_client_tgt_length); //copy the [32:] bytes
-	
 
+	//convert TGT to hex
+	unsigned char *key_client_tgt_hex = bytes_to_hex(key_client_tgt, &key_client_tgt_length);
+}	
+//STEP 5: Create TGS_REQ (only once)
+{
 	/* ------------------------------------------------------------
 	 * STEP 5: Create TGS_REQ (only once)
 	 *
@@ -270,6 +284,12 @@ int main(int argc, char *argv[]) {
 	 *      - Write all three required lines in order
 	 */
 
+
+
+}
+
+
+	
 	/* ------------------------------------------------------------
 	 * STEP 6: Wait for TGS response
 	 *

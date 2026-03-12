@@ -83,7 +83,7 @@ int main(int argc, char *argv[]) {
 	 * and exit gracefully.
 	 * ------------------------------------------------------------
 	 */
-	if (!file_exists("TGS_REQ.txt")) {
+	if (!file_exists(tgs_req_path)) {
 		printf("TGS_REQ not created\n");
 		return EXIT_FAILURE;
 	}
@@ -108,13 +108,25 @@ int main(int argc, char *argv[]) {
 	 *
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - Read line 1 from TGS_REQ.txt
-	 *  - Read Key_AS_TGS.txt (32 bytes)
-	 *  - AES-decrypt the TGT
-	 *  - Treat the result as ASCII data
-	 */
-	char *tgs_req_text = read_line("TGS_REQ.txt", 1);
+	char *tgs_req_text = read_line(tgs_req_path, 1);
+	unsigned char *tgs_req_bytes;
+	size_t tgs_req_bytes_len;
+	hex_to_bytes(tgs_req_text, &tgs_req_bytes, &tgs_req_bytes_len);
+	// printf("tgs_req_text: %s\n", tgs_req_text);
+	// printf("tgs_req_bytes: %s\n", tgs_req_bytes);
+
+	unsigned char *key_as_tgs;
+	size_t key_as_tgs_length;
+	if (read_hex_file_bytes(key_as_tgs_path, &key_as_tgs, &key_as_tgs_length) == 0) {
+		return EXIT_FAILURE;
+	}
+	// printf("key_as_tgs: %s\n", key_as_tgs);
+
+	unsigned char *plaintext;
+	int plaintext_length;
+	aes256_ecb_decrypt(key_as_tgs, tgs_req_bytes, (int)tgs_req_bytes_len, &plaintext, &plaintext_length);
+	// printf("plaintext: %s\n", plaintext);
+
 
 	/* ------------------------------------------------------------
 	 * STEP 2: Parse client identity and Key_Client_TGS
@@ -127,11 +139,24 @@ int main(int argc, char *argv[]) {
 	 *  - Key_Client_TGS is exactly 256 bits
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - Split decrypted TGT plaintext
-	 *  - Convert Key_Client_TGS hex → raw bytes
-	 *  - Abort if parsing or conversion fails
-	 */
+
+	unsigned char *clientID = malloc(7);
+	unsigned char *key_client_tgs = malloc(64);
+	for (int x = 0; x < plaintext_length; x++) {
+		if (x < plaintext_length-64) {
+			clientID[x] = plaintext[x];
+		}
+		else {
+			key_client_tgs[x-6] = plaintext[x];
+		}
+	}
+	// printf("clientID: %s\n", clientID);
+	// printf("key_client_tgs: %s\n", key_client_tgs);
+
+	unsigned char *key_client_tgs_bytes;
+	size_t key_client_tgs_bytes_len;
+	hex_to_bytes(key_client_tgs, &key_client_tgs_bytes, &key_client_tgs_bytes_len);
+
 
 	/* ------------------------------------------------------------
 	 * STEP 3: Verify client authenticator
@@ -145,11 +170,15 @@ int main(int argc, char *argv[]) {
 	 *  - For this demo, successful decryption is sufficient.
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - Read line 2 from TGS_REQ.txt
-	 *  - AES-decrypt using Key_Client_TGS
-	 *  - Treat failure as authentication failure
-	 */
+	char *tgs_req_text_2 = read_line(tgs_req_path, 2);
+	unsigned char *tgs_req_2_bytes;
+	size_t tgs_req_2_bytes_len;
+	hex_to_bytes(tgs_req_text_2, &tgs_req_2_bytes, &tgs_req_2_bytes_len);
+
+	unsigned char *client_auth;
+	int client_auth_length;
+	aes256_ecb_decrypt(key_client_tgs_bytes, tgs_req_2_bytes, (int)tgs_req_2_bytes_len, &client_auth, &client_auth_length);
+	// printf("client_auth: %s\n", client_auth);
 
 	/* ------------------------------------------------------------
 	 * STEP 4: Load pre-generated Key_Client_App
@@ -162,11 +191,20 @@ int main(int argc, char *argv[]) {
 	 * This file must contain exactly 256 bits (32 bytes).
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - Read Key_Client_App.txt (hex)
-	 *  - Validate length
-	 *  - Store raw bytes locally
-	 */
+
+	unsigned char *key_client_app;
+	size_t key_client_app_length;
+	if (read_hex_file_bytes(key_client_app_path, &key_client_app, &key_client_app_length) == 0) {
+		return EXIT_FAILURE;
+	}
+
+	if (key_client_app_length != 32) {
+		printf("key_client_app_length is not 32 bytes\n");
+		return EXIT_FAILURE;
+	}
+
+	unsigned char *key_client_app_hex = bytes_to_hex(key_client_app, key_client_app_length);
+	// printf("key_client_app_hex: %s\n", key_client_app_hex);
 
 	/* ------------------------------------------------------------
 	 * STEP 5: Build and encrypt Ticket_App
@@ -181,12 +219,22 @@ int main(int argc, char *argv[]) {
 	 *
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - Read Key_TGS_App.txt (32 bytes)
-	 *  - Concatenate client ID and Key_Client_App hex
-	 *  - AES-encrypt using Key_TGS_App
-	 *  - Hex-encode ciphertext → Ticket_App
-	 */
+	
+	char *key_tgs_app = read_line(key_tgs_app_path, 1);
+
+	printf("key_tgs_app: %s\n", key_tgs_app);
+
+	const unsigned char *plaintext_2 = malloc(strlen(clientID) + strlen(key_client_app_hex));
+	strcpy(plaintext_2, (char*)clientID);
+    strcat(plaintext_2, (char*)key_client_app_hex);
+	// printf("plaintext_2: %s\n", plaintext_2);
+
+	unsigned char *ticket_app;
+	int ticket_app_length;
+	aes256_ecb_encrypt(key_tgs_app, plaintext_2, strlen(plaintext_2), &ticket_app, &ticket_app_length);
+	// printf("ticket_app_length: %d\n", ticket_app_length);
+	// printf("ticket_app: %s\n", ticket_app);
+
 
 	/* ------------------------------------------------------------
 	 * STEP 6: Encrypt Key_Client_App for the client
@@ -203,10 +251,12 @@ int main(int argc, char *argv[]) {
 	 *  - enc_key_client_app (hex)
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - AES-encrypt Key_Client_App hex using Key_Client_TGS
-	 *  - Hex-encode the ciphertext
-	 */
+	unsigned char *enc_key_client_app;
+	int enc_key_client_app_length;
+	aes256_ecb_encrypt(key_client_tgs_bytes, key_client_app_hex, strlen(key_client_app_hex), &enc_key_client_app, &enc_key_client_app_length);
+	// printf("enc_key_client_app: %s\n", enc_key_client_app);
+	// printf("enc_key_client_app_length: %d\n", enc_key_client_app_length);
+
 
 	/* ------------------------------------------------------------
 	 * STEP 7: Write TGS_REP.txt
@@ -225,6 +275,9 @@ int main(int argc, char *argv[]) {
 	 *  - Write exactly two lines to TGS_REP.txt
 	 *  - Preserve order and formatting
 	 */
+	char *ticket_app_hex = bytes_to_hex(ticket_app, (size_t)ticket_app_length);
+	char *enc_key_client_app_hex = bytes_to_hex(enc_key_client_app, (size_t)enc_key_client_app_length);
+	write_text_lines("TGS_REP.txt", ticket_app_hex, enc_key_client_app_hex, NULL);
 
 	return EXIT_SUCCESS;
 }

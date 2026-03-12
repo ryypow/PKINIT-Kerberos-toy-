@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
 	unsigned char *clientID_1 = malloc(7);
 	unsigned char *key_client_app = malloc(64);
 	for (int x = 0; x < plaintext_length; x++) {
-		if (x < 6) {
+		if (x < plaintext_length-64) {
 			clientID_1[x] = plaintext[x];
 		}
 		else {
@@ -206,10 +206,6 @@ int main(int argc, char *argv[]) {
 	 *  - Reject the request
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - Compare the two client ID strings
-	 *  - Treat mismatch as authentication failure
-	 */
 	if (strcmp(clientID_1, clientID_2) != 0) {
 		printf("Authentication failure\n");
 		return EXIT_FAILURE;
@@ -227,12 +223,7 @@ int main(int argc, char *argv[]) {
 	 * No other output is permitted.
 	 * ------------------------------------------------------------
 	 */
-	/* TODO:
-	 *  - Create (or overwrite) APP_REP.txt
-	 *  - Write exactly:
-	 *        OK\n
-	 */
 	write_text_lines("APP_REP.txt", "OK", NULL, NULL);
-
+	
 	return EXIT_SUCCESS;
 }

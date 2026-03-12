@@ -132,21 +132,6 @@ int main(int argc, char *argv[]) {
 	//sign the temp public key using the clients permanent secret key
 	unsigned char *signed_client_temp_pk = ecdsa_sign_file_to_hex(client_sk_permanent, client_temp_pk_path, "Client_Signature.txt")
 
-	while
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	
 	/* ------------------------------------------------------------
 	 * STEP 2: Wait for AS response
@@ -159,6 +144,20 @@ int main(int argc, char *argv[]) {
 	 *  - Check if "AS_REP.txt" exists
 	 *  - If not, print a status message and exit SUCCESSFULLY
 	 */
+
+// --- TODO: may need to adjust sleep
+	int AS_patience = 0;
+	while(!file_exists("AS_REP.txt")) {
+		usleep(100000); //starting with 100ms
+		AS_patience++;
+		if (AS_patience > 4) {
+			fprintf(stderr, "Failed to read AS_REP.txt")
+			return EXIT_FAILURE
+		}
+	}
+
+	
+
 
 	/* ------------------------------------------------------------
 	 * STEP 3: Derive Key_Client_AS

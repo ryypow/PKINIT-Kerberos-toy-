@@ -220,10 +220,8 @@ int main(int argc, char *argv[])
 	 *  - Store raw bytes in key_client_tgs
 	 */
 
-	size_t key_client_tgs_length;
-	unsigned char *key_client_tgs = NULL;
-	int read_KeyClientTGS_success = read_hex_file_bytes("Key_Client_TGS.txt", &key_client_tgs, &key_client_tgs_length);
-
+	char *Key_Client_TGS = read_line("Key_Client_TGS.txt",1); //hex
+	
 	if (read_KeyClientTGS_success != 1) {
 		fprintf(stderr, "KDC: failed to read Key_client_AS [step4]");
 		return EXIT_FAILURE;
@@ -233,7 +231,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "KDC: key_client_TGS is not 32 bytes [step4]");
 		return EXIT_FAILURE;
 	}
-	free(key_client_tgs);
+	//free(key_client_tgs);
 
 	/* ------------------------------------------------------------
 	 * STEP 5: Build the Ticket Granting Ticket (TGT)
@@ -260,7 +258,52 @@ int main(int argc, char *argv[])
 	 *  - AES-encrypt under Key_AS_TGS
 	 *  - Hex-encode the ciphertext
 	 */
+
+	//read Key_AS_TGS.txgt
+
+	/*
+	FILE *key_as_tgs_stream = fopen("Key_AS_TGS.txt", "r");
+	if (!key_as_tgs_stream) {
+		fprintf(stderr, "KDC: Failed to open Key_AS_TGS (Step5)");
+		return EXIT_FAILURE;
+	}
+	unsigned char Key_AS_TGS[65];
+	fgets(Key_AS_TGS, sizeof(key_as_tgs_stream), f);
+	fclose(key_as_tgs_stream)
+	*/
+
+	//read Key_AS_TGS.txt (hex)
+	unsigned char *Key_AS_TGS_bytes = NULL;
+	size_t Key_AS_TGS_bytes_len;
+	if (Key_AS_TGS_bytes_len != 32) {
+		fprintf(stderr, "KDC: Key_AS_TGS must be 32 bytes [step5]");
+		return EXIT_FAILURE;
+	}
+	int read_KeyAStgs_toBytes_success = read_hex_file_bytes("Key_AS_TGS.txt", &Key_AS_TGS_bytes, &Key_AS_TGS_bytes_len);
+	if (!read_KeyAStgs_toBytes_success) {
+		fprintf(stderr, "KDC: Failed to read Key_AS_TGS.txt [step5]");
+		return EXIT_FAILURE;		
+	}
+	size_t client_len = strlen("Client");
+	size_t Key_Client_TGS_len = strlen(Key_Client_TGS);
 	
+	int TGT_buffer_len = client_len + Key_Client_TGS_len;
+
+	//concat client || Key_Client_TGS
+	unsigned char *TGT_plaintext_buffer = malloc(TGT_buffer_len + 1);
+	memcpy(TGT_plaintext_buffer, "Client", client_len);
+	memcpy(TGT_plaintext_buffer + client_len, Key_Client_TGS, Key_Client_TGS_len);
+	TGT_plaintext_buffer[6 + strlen(Key_Client_TGS)] = '\0';
+
+	//Encrypt with Key_AS_TGS
+	char *TGT_cipher_hex = NULL;
+	size_t tgt_biffer_length = Key_Client_TGS_len + client_len + 1
+	//int TGT_cipher_length = 0;
+	int aes_encrypt_success = aes256_encrypt_bytes_to_hex_string(Key_AS_TGS_bytes, TGT_plaintext_buffer, (size_t)TGT_buffer_len, &TGT_cipher_hex);
+	if (aes_encrypt_success != 1) {
+		fprintf(stderr, "KDC: Failed to encrypt TGT [step5]");
+		return EXIT_FAILURE;
+	}
 
 
 

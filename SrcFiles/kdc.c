@@ -297,16 +297,13 @@ int main(int argc, char *argv[])
 
 	//Encrypt with Key_AS_TGS
 	char *TGT_cipher_hex = NULL;
-	size_t tgt_biffer_length = Key_Client_TGS_len + client_len + 1
+	size_t tgt_buffer_length = Key_Client_TGS_len + client_len;
 	//int TGT_cipher_length = 0;
-	int aes_encrypt_success = aes256_encrypt_bytes_to_hex_string(Key_AS_TGS_bytes, TGT_plaintext_buffer, (size_t)TGT_buffer_len, &TGT_cipher_hex);
+	int aes_encrypt_success = aes256_encrypt_bytes_to_hex_string(Key_AS_TGS_bytes, TGT_plaintext_buffer, TGT_buffer_len, &TGT_cipher_hex);
 	if (aes_encrypt_success != 1) {
 		fprintf(stderr, "KDC: Failed to encrypt TGT [step5]");
 		return EXIT_FAILURE;
 	}
-
-
-
 
 	/* ------------------------------------------------------------
 	 * STEP 6: Build AS_REP
@@ -332,5 +329,8 @@ int main(int argc, char *argv[])
 	 *  - Write to AS_REP.txt (single line)
 	 */
 
+	AS_REP_len = Key_Client_TGS_len + 
+
+	
 	return EXIT_SUCCESS;
 }

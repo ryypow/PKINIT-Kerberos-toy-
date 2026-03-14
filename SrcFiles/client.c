@@ -84,25 +84,17 @@ int main(int argc, char *argv[]) {
 	 *        client_temp_pk_path
 	 *  - Print an error and exit on failure
 	 */
-	FILE *f;
+	if (!file_exists(client_temp_sk_path)) {
+		fprintf(stderr, "Client: client_temp_sk_path not found");
+		return EXIT_FAILURE;
+	}
+	if (!file_exists(client_temp_pk_path)) {
+		fprintf(stderr, "Client: client_temp_pk_path not found");
+		return EXIT_FAILURE;
+	}
 
-	f = fopen(client_temp_sk_path, "rb");
-	//verify temp client sk exists
-	if (!f) {
-		fprintf("Temporary Client Private key does not exist: %s\n", client_temp_sk_path);
-		exit(EXIT_FAILURE);
-	}
-	fclose(f);
-	
-	f = fopen(client_temp_pk_path, "rb");
-	//verify temp client PK exists
-	if (!f) {
-		fprintf("Temporary Client Public key does not exist: %s\n", client_temp_pk_path);
-		exit(EXIT_FAILURE);
-	}
-	fclose(f);
+
 //STEP 1: Sign Client temporary public key
-//{
 	/* ------------------------------------------------------------
 	 * STEP 1: Sign Client temporary public key
 	 *
@@ -127,18 +119,16 @@ int main(int argc, char *argv[]) {
 	 *        "Client_Signature.txt"
 	 */
 
-	int client_sk_perm_length;
-	unsigned char *client_sk_permanent = Read_File("Client_SK.txt", &client_sk_perm_length);
+	//int client_sk_perm_length;
+	//unsigned char *client_sk_permanent = Read_File("Client_SK.txt", &client_sk_perm_length);
+
 
 	//sign the temp public key using the clients permanent secret key
-	unsigned char *signed_client_temp_pk = ecdsa_sign_file_to_hex(client_sk_permanent, client_temp_pk_path, "Client_Signature.txt")
-//}
-
-
-
-
-
-
+	int ecdsasign_success = ecdsa_sign_file_to_hex("Client_SK.txt", client_temp_pk_path, "Client_Signature.txt");
+	if(!ecdsasign_success) {
+		fprintf(stderr, "failed to sign Client_temp_PK.txt\n");
+		return EXIT_FAILURE;
+	}
 
 //STEP 2: Wait for AS response
 //{
@@ -404,7 +394,7 @@ int main(int argc, char *argv[]) {
 	unsigned char* Ticket_App = read_line("TGS_REP.txt", 1);
 
 	write_text_lines("APP_REQ.txt", Ticket_App, auth_client_app)
-	
+
 	return EXIT_SUCCESS;
 }
 

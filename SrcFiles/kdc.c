@@ -220,6 +220,21 @@ int main(int argc, char *argv[])
 	 *  - Store raw bytes in key_client_tgs
 	 */
 
+	size_t key_client_tgs_length;
+	unsigned char *key_client_tgs = NULL;
+	int read_KeyClientTGS_success = read_hex_file_bytes("Key_Client_TGS.txt", &key_client_tgs, &key_client_tgs_length);
+
+	if (read_KeyClientTGS_success != 1) {
+		fprintf(stderr, "KDC: failed to read Key_client_AS [step4]");
+		return EXIT_FAILURE;
+	}
+
+	if (key_client_tgs_length != 32) {
+		fprintf(stderr, "KDC: key_client_TGS is not 32 bytes [step4]");
+		return EXIT_FAILURE;
+	}
+	free(key_client_tgs);
+
 	/* ------------------------------------------------------------
 	 * STEP 5: Build the Ticket Granting Ticket (TGT)
 	 *
@@ -245,6 +260,10 @@ int main(int argc, char *argv[])
 	 *  - AES-encrypt under Key_AS_TGS
 	 *  - Hex-encode the ciphertext
 	 */
+	
+
+
+
 
 	/* ------------------------------------------------------------
 	 * STEP 6: Build AS_REP

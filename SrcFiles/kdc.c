@@ -297,8 +297,6 @@ int main(int argc, char *argv[])
 
 	//Encrypt with Key_AS_TGS
 	char *TGT_cipher_hex = NULL;
-	size_t tgt_buffer_length = Key_Client_TGS_len + client_len;
-	//int TGT_cipher_length = 0;
 	int aes_encrypt_success = aes256_encrypt_bytes_to_hex_string(Key_AS_TGS_bytes, TGT_plaintext_buffer, TGT_buffer_len, &TGT_cipher_hex);
 	if (aes_encrypt_success != 1) {
 		fprintf(stderr, "KDC: Failed to encrypt TGT [step5]");

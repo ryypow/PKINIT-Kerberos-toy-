@@ -284,11 +284,8 @@ int main(int argc, char *argv[]) {
 	//unsigned char *key_client_tgt_hex = bytes_to_hex(key_client_tgt, &key_client_tgt_length);
 	
 
-
-
-
-
 //STEP 5: Create TGS_REQ (only once)
+{
 	/* ------------------------------------------------------------
 	 * STEP 5: Create TGS_REQ (only once)
 	 *
@@ -317,8 +314,9 @@ int main(int argc, char *argv[]) {
 		//unsigned char *Auth_client_tgs_hex = bytes_to_hex(Auth_Client_TGS, &auth_client_tgs_length)
 		//bytes_to_hex("")
 
-		char *auth_client_tgs_hex = NULL; 
-		int success_aes256_encrypt = aes256_encrypt_bytes_to_hex_string(key_client_tgs, (const unsigned char *)"Client", 6, &auth_client_tgs_hex);
+		unsigned char *auth_client_tgs_hex = NULL;
+		size_t client_tgs_length;
+		int success_aes256_encrypt = aes256_encrypt_bytes_to_hex_string(key_client_tgs, (const unsigned char *)"Client", &auth_client_tgs_hex, &client_tgs_length);
 		int success_write_to_TGS_REQ = write_text_lines("TGS_REQ.txt", tgt_hex, auth_client_tgs_hex, "Service");
 		if (!success_aes256_encrypt != 1 || !success_write_to_TGS_REQ != 1) {
 			fprintf(stderr, "failed to create Auth_Client_TGS or TGS_REQ.txt\n");
@@ -326,11 +324,12 @@ int main(int argc, char *argv[]) {
 		free(auth_client_tgs_hex);		
 	}
 	free(tgt_hex);
-
+}
 
 	
-	/* ------------------------------------------------------------
-	 * STEP 6: Wait for TGS response
+//STEP 6: Wait for TGS response
+{
+		/* ------------------------------------------------------------
 	 *
 	 * TGS writes "TGS_REP.txt" when ready.
 	 * If missing, exit gracefully.
@@ -345,7 +344,7 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "TGS_REP does not exist: exiting gracefully\n");
 		exit(EXIT_FAILURE);
 	}
-
+}
 
 	/* ------------------------------------------------------------
 	 * STEP 7: Recover Key_Client_App
@@ -366,6 +365,20 @@ int main(int argc, char *argv[]) {
 	 *  - Store exactly 32 bytes in key_client_app
 	 */
 
+	unsigned char* second_line_TGS = read_line("TGS_REP.txt", 2); //(hex, AES key_client_tgs)
+
+
+	unsigned char *plaintext_keyClient_app = NULL;
+	int plaintext_keyClient_app_length;
+	int aes_decrypt_success_tgs = aes256_decrypt_hex_string_to_bytes(key_client_tgs, second_line_TGS, &plaintext_keyClient_app, &plaintext_keyClient_app_length);
+	if(aes_decrypt_success_tgs != 1) {
+		fprintf(stderr, "failed to decrypt TGS_REP.txt");
+	}
+	
+	//copy bytes into key_client_app array
+	unsigned char key_client_app[32];// = malloc(plaintext_keyClient_app_length + 1);
+	memcpy(key_client_app, plaintext_keyClient_app, plaintext_keyClient_app_length);
+	
 	/* ------------------------------------------------------------
 	 * STEP 8: Create APP_REQ
 	 *
@@ -384,8 +397,33 @@ int main(int argc, char *argv[]) {
 	 *  - Write both values to "APP_REQ.txt"
 	 */
 
+	size_t as_req_length;
+	unsigned char *as_req_hex = NULL;
+	unsigned char* auth_client_app = aes256_encrypt_bytes_to_hex_string(key_client_app, (const unsigned char *)"Client", &as_req_hex, &as_req_length);
+	
+	unsigned char* Ticket_App = read_line("TGS_REP.txt", 1);
+
+	write_text_lines("APP_REQ.txt", Ticket_App, auth_client_app)
+	
 	return EXIT_SUCCESS;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /*============================
         Read from File

@@ -97,6 +97,18 @@ int main(int argc, char *argv[])
 	 *  - Print descriptive errors and exit on failure
 	 */
 
+	if (!file_exists(client_sig_path)) {
+		fprintf(stderr, "KDC: client_sig_path not found");
+		return EXIT_FAILURE;
+	}
+	if (!file_exists(as_temp_pk_path)) {
+		fprintf(stderr, "KDC: as_temp_pk_path not found");
+		return EXIT_FAILURE;
+	}
+	if (!file_exists(as_temp_sk_path)) {
+		fprintf(stderr, "KDC: as_temp_sk_path not found");
+		return EXIT_FAILURE;
+	}
 	/* ------------------------------------------------------------
 	 * STEP 1: Verify client identity
 	 *
@@ -117,6 +129,12 @@ int main(int argc, char *argv[])
 	 *  - Treat failure as an authentication failure
 	 */
 
+	int verify_success = ecdsa_verify_file_from_hex("Client_PK.txt", client_temp_pk_path, client_sig_path);
+	if (!verify_success) {
+		fprintf(stderr, "KDC: client auth failed [Step1]");
+		return EXIT_FAILURE;
+	}
+
 	/* ------------------------------------------------------------
 	 * STEP 2: Derive shared secret (ECDH)
 	 *
@@ -135,6 +153,25 @@ int main(int argc, char *argv[])
 	 *  - Write the shared secret to shared_secret.txt (hex)
 	 */
 
+	unsigned char *shared_secret = NULL;
+	size_t shared_secret_length = 0;
+	int ecdh_shared_secret_success = ecdh_shared_secret_files(as_temp_sk_path, client_temp_pk_path, 
+															&shared_secret, &shared_secret_length);
+
+	if(ecdh_shared_secret_success != 1) {
+		fprintf(stderr, "KDC: ECDH failure [step2]");
+		return EXIT_FAILURE;
+	}
+
+	int write_SS_success = write_hex_file("shared_secret.txt", shared_secret, shared_secret_length);
+	if (write_SS_success != 1){
+		fprintf(stderr, "KDC: failed to write shared secret [step2]");
+		return EXIT_FAILURE;
+	}
+
+
+
+
 	/* ------------------------------------------------------------
 	 * STEP 3: Derive Key_Client_AS
 	 *
@@ -151,6 +188,20 @@ int main(int argc, char *argv[])
 	 *  - Hash the shared secret using SHA-256
 	 *  - Write exactly 32 bytes to Key_Client_AS.txt
 	 */
+
+	unsigned char key_client_AS_bytes[32];
+	int hash_success = sha256_bytes(shared_secret, shared_secret_length, key_client_AS_bytes);
+	if (!hash_success) {
+		fprintf(stderr, "KDC: failed to hash [step3]");
+		return EXIT_FAILURE;
+	}
+
+	int write_KeyClientAs_success = write_hex_file("Key_Client_AS.txt", key_client_AS_bytes, 32);
+	if (write_KeyClientAs_success != 1) {
+		fprintf(stderr, "KDC: failed to write Key_client_as.txt [step3]");
+		return EXIT_FAILURE;
+	}
+
 
 	/* ------------------------------------------------------------
 	 * STEP 4: Load pre-generated session key (Client ↔ TGS)

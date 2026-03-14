@@ -275,29 +275,34 @@ int main(int argc, char *argv[])
 	//read Key_AS_TGS.txt (hex)
 	unsigned char *Key_AS_TGS_bytes = NULL;
 	size_t Key_AS_TGS_bytes_len;
-	if (Key_AS_TGS_bytes_len != 32) {
-		fprintf(stderr, "KDC: Key_AS_TGS must be 32 bytes [step5]");
-		return EXIT_FAILURE;
-	}
-	int read_KeyAStgs_toBytes_success = read_hex_file_bytes("Key_AS_TGS.txt", &Key_AS_TGS_bytes, &Key_AS_TGS_bytes_len);
+
+	int read_KeyAStgs_toBytes_success = 
+			read_hex_file_bytes("Key_AS_TGS.txt", &Key_AS_TGS_bytes, &Key_AS_TGS_bytes_len);
 	if (!read_KeyAStgs_toBytes_success) {
 		fprintf(stderr, "KDC: Failed to read Key_AS_TGS.txt [step5]");
 		return EXIT_FAILURE;		
 	}
+
+	if (Key_AS_TGS_bytes_len != 32) {
+		fprintf(stderr, "KDC: Key_AS_TGS must be 32 bytes [step5]");
+		return EXIT_FAILURE;
+	}
+
 	size_t client_len = strlen("Client");
 	size_t Key_Client_TGS_len = strlen(Key_Client_TGS);
-	
-	int TGT_buffer_len = client_len + Key_Client_TGS_len;
+	size_t TGT_buffer_len = client_len + Key_Client_TGS_len;
 
 	//concat client || Key_Client_TGS
 	unsigned char *TGT_plaintext_buffer = malloc(TGT_buffer_len + 1);
 	memcpy(TGT_plaintext_buffer, "Client", client_len);
 	memcpy(TGT_plaintext_buffer + client_len, Key_Client_TGS, Key_Client_TGS_len);
-	TGT_plaintext_buffer[6 + strlen(Key_Client_TGS)] = '\0';
+	TGT_plaintext_buffer[TGT_buffer_len] = '\0';
 
 	//Encrypt with Key_AS_TGS
 	char *TGT_cipher_hex = NULL;
-	int aes_encrypt_success = aes256_encrypt_bytes_to_hex_string(Key_AS_TGS_bytes, TGT_plaintext_buffer, TGT_buffer_len, &TGT_cipher_hex);
+	int aes_encrypt_success = aes256_encrypt_bytes_to_hex_string(
+		Key_AS_TGS_bytes, TGT_plaintext_buffer, TGT_buffer_len, &TGT_cipher_hex);
+		
 	if (aes_encrypt_success != 1) {
 		fprintf(stderr, "KDC: Failed to encrypt TGT [step5]");
 		return EXIT_FAILURE;

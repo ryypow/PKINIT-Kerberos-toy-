@@ -250,22 +250,31 @@ int main(int argc, char *argv[]) {
 								&AS_REP_plaintext, 
 								&AS_REP_plaintext_len);
 
-	if(!decrypt_success != 1) {
+	if(decrypt_ASREP_success != 1) {
 		fprintf(stderr, "Client.c: AS_REP decryption FAILED\n [step 4]");
+		free(AS_REP_bytes);
+		free(AS_REP_plaintext);
+		return EXIT_FAILURE;
+	}
+
+	if(AS_REP_plaintext_len < 32) {
+		fprintf(stderr, "Client.c: AS_REP_plaintext is less than 32 bytes [step 4]");
+		free(AS_REP_bytes);
+		free(AS_REP_plaintext);
 		return EXIT_FAILURE;
 	}
 
 	//first 32 bytes into key_client_tgs
 	unsigned char key_client_tgs[32];
 	memcpy(key_client_tgs, AS_REP_plaintext, 32);
-//---> do i need to write client_TGS to a file?
 
 	//copy [32:] bytes into key_client_tgt
-	int tgt_length_hex = AS_REP_plaintext_len - 32; //not including the 32byte TGS
-	unsigned char *tgt_hex = malloc(tgt_length_hex + 1);
+	size_t TGT_hex_len = AS_REP_plaintext_len - 32; //not including the 32byte TGS
+	char *TGT_hex = malloc(TGT_hex_len + 1);
+	
+	memcpy(TGT_hex, AS_REP_plaintext + 32, TGT_hex_len); //copy the [32:] bytes
+	TGT_hex[TGT_hex_len] = '\0';
 
-	memcpy(tgt_hex, AS_REP_plaintext + 32, tgt_length_hex); //copy the [32:] bytes
-	tgt_hex[tgt_length_hex] = '\0';
 	free(AS_REP_plaintext);
 
 //STEP 5: Create TGS_REQ (only once)
@@ -301,13 +310,13 @@ int main(int argc, char *argv[]) {
 		unsigned char *auth_client_tgs_hex = NULL;
 		size_t client_tgs_length;
 		int success_aes256_encrypt = aes256_encrypt_bytes_to_hex_string(key_client_tgs, (const unsigned char *)"Client", &auth_client_tgs_hex, &client_tgs_length);
-		int success_write_to_TGS_REQ = write_text_lines("TGS_REQ.txt", tgt_hex, auth_client_tgs_hex, "Service");
+		int success_write_to_TGS_REQ = write_text_lines("TGS_REQ.txt", TGT_hex, auth_client_tgs_hex, "Service");
 		if (!success_aes256_encrypt != 1 || !success_write_to_TGS_REQ != 1) {
 			fprintf(stderr, "failed to create Auth_Client_TGS or TGS_REQ.txt\n");
 		}
 		free(auth_client_tgs_hex);		
 	}
-	free(tgt_hex);
+	free(TGT_hex);
 }
 
 	

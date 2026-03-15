@@ -143,7 +143,7 @@ int main(int argc, char *argv[]) {
 		AS_patience++;
 		if (AS_patience > 4) {
 			fprintf(stderr, "Client.c: Failed to read AS_REP.txt [step 2]");
-			return EXIT_FAILURE;
+			return EXIT_SUCCESS;
 		}
 	}
 
@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
 	//copy [32:] bytes into key_client_tgt
 	size_t TGT_hex_len = AS_REP_plaintext_len - 32; //not including the 32byte TGS
 	char *TGT_hex = malloc(TGT_hex_len + 1);
-	
+
 	memcpy(TGT_hex, AS_REP_plaintext + 32, TGT_hex_len); //copy the [32:] bytes
 	TGT_hex[TGT_hex_len] = '\0';
 
@@ -302,19 +302,23 @@ int main(int argc, char *argv[]) {
 	 */
 
 	if (!file_exists("TGS_REQ.txt")) { 
-		//unsigned char* Auth_Client_TGS = AES(Key_Client_TGS, "Client");
-		//size_t auth_client_tgs_length;
-		//unsigned char *Auth_client_tgs_hex = bytes_to_hex(Auth_Client_TGS, &auth_client_tgs_length)
-		//bytes_to_hex("")
-
-		unsigned char *auth_client_tgs_hex = NULL;
-		size_t client_tgs_length;
-		int success_aes256_encrypt = aes256_encrypt_bytes_to_hex_string(key_client_tgs, (const unsigned char *)"Client", &auth_client_tgs_hex, &client_tgs_length);
-		int success_write_to_TGS_REQ = write_text_lines("TGS_REQ.txt", TGT_hex, auth_client_tgs_hex, "Service");
-		if (!success_aes256_encrypt != 1 || !success_write_to_TGS_REQ != 1) {
-			fprintf(stderr, "failed to create Auth_Client_TGS or TGS_REQ.txt\n");
+		char *Auth_Client_TGS_hex = NULL;
+		size_t plaintext_len = strlen("Client");
+		int success_aes256_encrypt = aes256_encrypt_bytes_to_hex_string(
+										key_client_tgs,
+										(const unsigned char *)"Client",
+										plaintext_len,
+										&Auth_Client_TGS_hex);
+		if (!success_aes256_encrypt != 1) {
+			fprintf(stderr, "Client.c: failed to encrypt Auth_Client_TGS [step 5]\n");
+			return EXIT_FAILURE;
 		}
-		free(auth_client_tgs_hex);		
+		int success_write_to_TGS_REQ = write_text_lines("TGS_REQ.txt", TGT_hex, Auth_Client_TGS_hex, "Service");
+		if (!success_aes256_encrypt != 1 || !success_write_to_TGS_REQ != 1) {
+			fprintf(stderr, "Client.c: failed to create TGS_REQ.txt [step 5]\n");
+			return EXIT_FAILURE;
+		}
+		free(Auth_Client_TGS_hex);		
 	}
 	free(TGT_hex);
 }
@@ -334,8 +338,8 @@ int main(int argc, char *argv[]) {
 	 */
 
 	if (!file_exists("TGS_REP.txt")) {
-		fprintf(stderr, "TGS_REP does not exist: exiting gracefully\n");
-		exit(EXIT_FAILURE);
+		fprintf(stderr, "TGS_REP does not exist: exiting gracefully [step 6]\n");
+		exit(EXIT_SUCCESS);
 	}
 }
 

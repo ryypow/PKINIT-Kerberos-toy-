@@ -395,13 +395,23 @@ int main(int argc, char *argv[]) {
 	 *  - Write both values to "APP_REQ.txt"
 	 */
 
-	size_t as_req_length;
-	unsigned char *as_req_hex = NULL;
-	unsigned char* auth_client_app = aes256_encrypt_bytes_to_hex_string(key_client_app, (const unsigned char *)"Client", &as_req_hex, &as_req_length);
+	size_t Auth_Client_App_len;
+	char *Auth_Client_App = NULL;
+	int app_req_encrypt_success = aes256_encrypt_bytes_to_hex_string(
+									Key_Client_App,
+									(const unsigned char *)"Client",
+									Auth_Client_App_len,
+									&Auth_Client_App
+									);
 	
+	if (app_req_encrypt_success != 1) {
+		fprintf(stderr, "client.c: Failed to encrypt APP_REQ");
+		return EXIT_FAILURE;
+	}
+
 	unsigned char* Ticket_App = read_line("TGS_REP.txt", 1);
 
-	write_text_lines("APP_REQ.txt", Ticket_App, auth_client_app)
+	write_text_lines("APP_REQ.txt", Ticket_App, auth_client_app);
 
 	return EXIT_SUCCESS;
 }

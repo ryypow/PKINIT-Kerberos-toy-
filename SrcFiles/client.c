@@ -225,34 +225,23 @@ int main(int argc, char *argv[]) {
 	//AS_REP.txt AS_REP_plaintext format: 32 bytes for TGS || ASCII hex of TGT
 	//it is encrypted in the kdc using key_client_as ---> we will decrypt with the same
 
-	unsigned char *AS_REP_bytes = NULL;
-	size_t AS_REP_bytes_len = 0;
-	int read_ASREP_success = read_hex_file_bytes("AS_REP.txt", &AS_REP_bytes, &AS_REP_bytes_len);
-
-	if (read_ASREP_success != 1) {
-		fprintf(stderr, "Client.c: Failed to read AS_REP.txt [step 4]\n");
-		return EXIT_FAILURE;		
-	}
-
-	int AS_REP_plaintext_len = 0;	
+	size_t AS_REP_plaintext_size = 0;
 	unsigned char *AS_REP_plaintext = NULL;
-	int decrypt_ASREP_success = aes256_ecb_decrypt(
-								key_client_as, 
-								AS_REP_bytes, 
-								(int)AS_REP_bytes_len, 
-								&AS_REP_plaintext, 
-								&AS_REP_plaintext_len);
+	int decrypt_ASREP_success = aes256_decrypt_hex_file_to_bytes(
+								key_client_as,
+								"AS_REP.txt",
+								&AS_REP_plaintext,
+								&AS_REP_plaintext_size);
+	int AS_REP_plaintext_len = (int)AS_REP_plaintext_size;
 
 	if(decrypt_ASREP_success != 1) {
-		fprintf(stderr, "Client.c: AS_REP decryption FAILED\n [step 4]\n");
-		free(AS_REP_bytes);
+		fprintf(stderr, "Client.c: AS_REP decryption FAILED [step 4]\n");
 		free(AS_REP_plaintext);
 		return EXIT_FAILURE;
 	}
 
 	if(AS_REP_plaintext_len < 32) {
 		fprintf(stderr, "Client.c: AS_REP_plaintext is less than 32 bytes [step 4]\n");
-		free(AS_REP_bytes);
 		free(AS_REP_plaintext);
 		return EXIT_FAILURE;
 	}
@@ -367,15 +356,25 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Client.c: failed to decrypt TGS_REP.txt [step 7]\n");
 		return EXIT_FAILURE;
 	}
-	
-	if(Key_Client_App_length != 32) {
+
+	char *key_client_app_hex = malloc(Key_Client_App_length + 1);
+	memcpy(key_client_app_hex, Key_Client_App, Key_Client_App_length);
+	key_client_app_hex[Key_Client_App_length] = '\0';
+	free(Key_Client_App);
+
+	unsigned char *Key_Client_App_bytes = NULL;
+	size_t Key_Client_App_bytes_len = 0;
+	int hex2bytes_success = hex_to_bytes(key_client_app_hex, &Key_Client_App_bytes, &Key_Client_App_bytes_len);
+	free(key_client_app_hex);
+
+	if(hex2bytes_success != 1 || Key_Client_App_bytes_len != 32) {
 		fprintf(stderr, "Client.c: Key_Client_app is not 32 bytes\n");
-		free(Key_Client_App);
+		free(Key_Client_App_bytes);
 		return EXIT_FAILURE;
 	}
 
-	memcpy(key_client_app, Key_Client_App, 32);
-	free(Key_Client_App);
+	memcpy(key_client_app, Key_Client_App_bytes, 32);
+	free(Key_Client_App_bytes);
 	/* ------------------------------------------------------------
 	 * STEP 8: Create APP_REQ
 	 *
@@ -418,7 +417,6 @@ int main(int argc, char *argv[]) {
 
 	free(shared_secret);
 	free(Key_Client_AS_bytes);
-	free(AS_REP_bytes);
 	free(second_line_TGS);
 	//free(Key_Client_App);
 	free(Ticket_App);

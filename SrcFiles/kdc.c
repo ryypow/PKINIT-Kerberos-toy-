@@ -207,30 +207,33 @@ int main(int argc, char *argv[])
 	 * STEP 4: Load pre-generated session key (Client ↔ TGS)
 	 *
 	 * For this demo, the KDC does NOT generate a new
-	 * Key_Client_TGS. Instead, it reads an existing one:
+	 * Key_Client_TGS_hex. Instead, it reads an existing one:
 	 *
-	 *      "Key_Client_TGS.txt"
+	 *      "Key_Client_TGS_hex.txt"
 	 *
 	 * This file must contain exactly 256 bits (32 bytes).
 	 * ------------------------------------------------------------
 	 */
 	/* TODO:
-	 *  - Read Key_Client_TGS.txt (hex)
+	 *  - Read Key_Client_TGS_hex.txt (hex)
 	 *  - Validate length
 	 *  - Store raw bytes in key_client_tgs
 	 */
 
-	char *Key_Client_TGS = read_line("Key_Client_TGS.txt",1); //hex
-
-	if (Key_Client_TGS != 32) {
+	char *Key_Client_TGS_hex = read_line("Key_Client_TGS_hex.txt",1);
+	size_t Key_Client_TGS_hex_len = strlen(Key_Client_TGS_hex);
+	if (Key_Client_TGS_hex_len != 32) {
 		fprintf(stderr, "KDC: key_client_TGS is not 32 bytes [step4]");
 		return EXIT_FAILURE;
 	}
 
 	unsigned char *Key_Client_TGS_bytes = NULL;
-	size_t Key_Client_TGS_bytes_len;
-	int hex2byte_conversion_success = hex_to_bytes(Key_Client_TGS, Key_Client_TGS_bytes, Key_Client_TGS_bytes_len);
-	//free(key_client_tgs);
+	size_t Key_Client_TGS_bytes_len = 0;
+	int hex2byte_conversion_success = hex_to_bytes(Key_Client_TGS_hex, &Key_Client_TGS_bytes, &Key_Client_TGS_bytes_len);
+	if (hex2byte_conversion_success != 1) {
+		fprintf(stderr, "KDC: Hex to Byte conversion failed [step4]");
+		return EXIT_FAILURE;
+	}
 
 	/* ------------------------------------------------------------
 	 * STEP 5: Build the Ticket Granting Ticket (TGT)
@@ -253,7 +256,7 @@ int main(int argc, char *argv[])
 	 */
 	/* TODO:
 	 *  - Read Key_AS_TGS.txt (hex, 32 bytes)
-	 *  - Concatenate client ID and Key_Client_TGS hex
+	 *  - Concatenate client ID and Key_Client_TGS_hex hex
 	 *  - AES-encrypt under Key_AS_TGS
 	 *  - Hex-encode the ciphertext
 	 */
@@ -288,13 +291,13 @@ int main(int argc, char *argv[])
 	}
 
 	size_t client_len = strlen("Client");
-	size_t Key_Client_TGS_len = strlen(Key_Client_TGS);
+	size_t Key_Client_TGS_len = strlen(Key_Client_TGS_hex);
 	size_t TGT_buffer_len = client_len + Key_Client_TGS_len;
 
-	//concat client || Key_Client_TGS
+	//concat client || Key_Client_TGS_hex
 	unsigned char *TGT_plaintext_buffer = malloc(TGT_buffer_len + 1);
 	memcpy(TGT_plaintext_buffer, "Client", client_len);
-	memcpy(TGT_plaintext_buffer + client_len, Key_Client_TGS, Key_Client_TGS_len);
+	memcpy(TGT_plaintext_buffer + client_len, Key_Client_TGS_hex, Key_Client_TGS_len);
 	TGT_plaintext_buffer[TGT_buffer_len] = '\0';
 
 	//Encrypt with Key_AS_TGS
@@ -312,7 +315,7 @@ int main(int argc, char *argv[])
 	 *
 	 * AS_REP plaintext format:
 	 *
-	 *   [ 32 bytes Key_Client_TGS ] ||
+	 *   [ 32 bytes Key_Client_TGS_hex ] ||
 	 *   [ ASCII hex string of TGT ]
 	 *
 	 * Encrypt AS_REP using:
@@ -325,7 +328,7 @@ int main(int argc, char *argv[])
 	 * ------------------------------------------------------------
 	 */
 	/* TODO:
-	 *  - Concatenate raw Key_Client_TGS and TGT hex string
+	 *  - Concatenate raw Key_Client_TGS_hex and TGT hex string
 	 *  - AES-256 encrypt using Key_Client_AS
 	 *  - Hex-encode ciphertext
 	 *  - Write to AS_REP.txt (single line)
@@ -333,7 +336,7 @@ int main(int argc, char *argv[])
 	size_t TGT_cipher_hex_length = strlen(TGT_cipher_hex);
 	size_t AS_REP_len = Key_Client_TGS_len + TGT_cipher_hex_length;
 	unsigned char *AS_REP_buffer = malloc(AS_REP_len);
-	memcpy(AS_REP_buffer, Key_Client_TGS, Key_Client_TGS_len);
+	memcpy(AS_REP_buffer, Key_Client_TGS_hex, Key_Client_TGS_len);
 	memcpy(AS_REP_buffer + Key_Client_TGS_len, TGT_cipher_hex, TGT_cipher_hex_length);
 
 	char *as_rep_cipher_bytes = NULL;

@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
 	 */
 
 	unsigned char *clientID = malloc(7);
-	unsigned char *key_client_tgs = malloc(64);
+	unsigned char *key_client_tgs = malloc(65);
 	for (int x = 0; x < plaintext_length; x++) {
 		if (x < plaintext_length-64) {
 			clientID[x] = plaintext[x];
@@ -150,6 +150,8 @@ int main(int argc, char *argv[]) {
 			key_client_tgs[x-6] = plaintext[x];
 		}
 	}
+	clientID[plaintext_length - 64] = '\0';
+	key_client_tgs[64] = '\0';
 	// printf("clientID: %s\n", clientID);
 	// printf("key_client_tgs: %s\n", key_client_tgs);
 
@@ -220,18 +222,18 @@ int main(int argc, char *argv[]) {
 	 * ------------------------------------------------------------
 	 */
 	
-	char *key_tgs_app = read_line(key_tgs_app_path, 1);
+	unsigned char *key_tgs_app_bytes;
+	size_t key_tgs_app_bytes_len;
+	read_hex_file_bytes(key_tgs_app_path, &key_tgs_app_bytes, &key_tgs_app_bytes_len);
 
-	printf("key_tgs_app: %s\n", key_tgs_app);
-
-	const unsigned char *plaintext_2 = malloc(strlen(clientID) + strlen(key_client_app_hex));
-	strcpy(plaintext_2, (char*)clientID);
-    strcat(plaintext_2, (char*)key_client_app_hex);
+	const unsigned char *plaintext_2 = malloc(strlen((char*)clientID) + strlen((char*)key_client_app_hex) + 1);
+	strcpy((char*)plaintext_2, (char*)clientID);
+    strcat((char*)plaintext_2, (char*)key_client_app_hex);
 	// printf("plaintext_2: %s\n", plaintext_2);
 
 	unsigned char *ticket_app;
 	int ticket_app_length;
-	aes256_ecb_encrypt(key_tgs_app, plaintext_2, strlen(plaintext_2), &ticket_app, &ticket_app_length);
+	aes256_ecb_encrypt(key_tgs_app_bytes, plaintext_2, strlen((char*)plaintext_2), &ticket_app, &ticket_app_length);
 	// printf("ticket_app_length: %d\n", ticket_app_length);
 	// printf("ticket_app: %s\n", ticket_app);
 

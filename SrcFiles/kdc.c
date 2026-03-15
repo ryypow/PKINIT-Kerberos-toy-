@@ -222,16 +222,19 @@ int main(int argc, char *argv[])
 
 	char *Key_Client_TGS_hex = read_line("Key_Client_TGS_hex.txt",1);
 	size_t Key_Client_TGS_hex_len = strlen(Key_Client_TGS_hex);
-	if (Key_Client_TGS_hex_len != 32) {
-		fprintf(stderr, "KDC: key_client_TGS is not 32 bytes [step4]");
-		return EXIT_FAILURE;
-	}
+
+	//if (Key_Client_TGS_hex_len != 64) {
+	//	fprintf(stderr, "KDC: key_client_TGS is not 32 bytes [step4]");
+	//	return EXIT_FAILURE;
+	//}
 
 	unsigned char *Key_Client_TGS_bytes = NULL;
 	size_t Key_Client_TGS_bytes_len = 0;
+
 	int hex2byte_conversion_success = hex_to_bytes(Key_Client_TGS_hex, &Key_Client_TGS_bytes, &Key_Client_TGS_bytes_len);
-	if (hex2byte_conversion_success != 1) {
-		fprintf(stderr, "KDC: Hex to Byte conversion failed [step4]");
+	
+	if (hex2byte_conversion_success != 1 || Key_Client_TGS_bytes_len != 32) {
+		fprintf(stderr, "KDC: Step 4 failure");
 		return EXIT_FAILURE;
 	}
 
@@ -291,13 +294,13 @@ int main(int argc, char *argv[])
 	}
 
 	size_t client_len = strlen("Client");
-	size_t Key_Client_TGS_len = strlen(Key_Client_TGS_hex);
-	size_t TGT_buffer_len = client_len + Key_Client_TGS_len;
+	//size_t Key_Client_TGS_len = strlen(Key_Client_TGS_hex);
+	size_t TGT_buffer_len = client_len + Key_Client_TGS_hex_len;
 
 	//concat client || Key_Client_TGS_hex
 	unsigned char *TGT_plaintext_buffer = malloc(TGT_buffer_len + 1);
 	memcpy(TGT_plaintext_buffer, "Client", client_len);
-	memcpy(TGT_plaintext_buffer + client_len, Key_Client_TGS_hex, Key_Client_TGS_len);
+	memcpy(TGT_plaintext_buffer + client_len, Key_Client_TGS_hex, Key_Client_TGS_hex_len);
 	TGT_plaintext_buffer[TGT_buffer_len] = '\0';
 
 	//Encrypt with Key_AS_TGS
@@ -334,14 +337,14 @@ int main(int argc, char *argv[])
 	 *  - Write to AS_REP.txt (single line)
 	 */
 	size_t TGT_cipher_hex_length = strlen(TGT_cipher_hex);
-	size_t AS_REP_len = Key_Client_TGS_len + TGT_cipher_hex_length;
+	size_t AS_REP_len = Key_Client_TGS_bytes_len + TGT_cipher_hex_length;
 	unsigned char *AS_REP_buffer = malloc(AS_REP_len);
-	memcpy(AS_REP_buffer, Key_Client_TGS_hex, Key_Client_TGS_len);
-	memcpy(AS_REP_buffer + Key_Client_TGS_len, TGT_cipher_hex, TGT_cipher_hex_length);
+	memcpy(AS_REP_buffer, Key_Client_TGS_bytes, Key_Client_TGS_bytes_len);
+	memcpy(AS_REP_buffer + Key_Client_TGS_bytes_len, TGT_cipher_hex, TGT_cipher_hex_length);
 
 	char *as_rep_cipher_bytes = NULL;
 	int as_rep_cipher_len = 0;
-	int aes_encrypt_success = aes256_ecb_encrypt(
+	int as_rep_aes_encrypt_success = aes256_ecb_encrypt(
 		key_client_AS_bytes,
 		AS_REP_buffer,
 		AS_REP_len,

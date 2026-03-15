@@ -5,6 +5,7 @@
 #include <openssl/sha.h>
 #include <openssl/ec.h>
 #include <openssl/rand.h>
+#include <unistd.h>
 #include "RequiredFunctions.c"
 
 /*
@@ -83,11 +84,15 @@ int main(int argc, char *argv[]) {
 	 *  - Print an error and exit on failure
 	 */
 	if (!file_exists(client_temp_sk_path)) {
-		fprintf(stderr, "Client: client_temp_sk_path not found");
+		fprintf(stderr, "Client: client_temp_sk_path not found\n");
 		return EXIT_FAILURE;
 	}
 	if (!file_exists(client_temp_pk_path)) {
-		fprintf(stderr, "Client: client_temp_pk_path not found");
+		fprintf(stderr, "Client: client_temp_pk_path not found\n");
+		return EXIT_FAILURE;
+	}
+	if (!file_exists(as_temp_pk_path)) {
+		fprintf(stderr, "Client: as_temp_pk_pathh not found\n");
 		return EXIT_FAILURE;
 	}
 
@@ -136,16 +141,10 @@ int main(int argc, char *argv[]) {
 	 *  - If not, print a status message and exit SUCCESSFULLY
 	 */
 
-// --- TODO: may need to adjust sleep
-	int AS_patience = 0;
-	while(!file_exists("AS_REP.txt")) {
-		usleep(100000); //starting with 100ms
-		AS_patience++;
-		if (AS_patience > 4) {
-			fprintf(stderr, "Client.c: Failed to read AS_REP.txt [step 2]");
+		if (!file_exists("AS_REP.txt")) {
+			fprintf(stderr, "Client.c: Failed to read AS_REP.txt [step 2]\n");
 			return EXIT_SUCCESS;
 		}
-	}
 
 	/* ------------------------------------------------------------
 	 * STEP 3: Derive Key_Client_AS
@@ -175,16 +174,13 @@ int main(int argc, char *argv[]) {
 	size_t shared_secret_length = 0;
 	int client_ecdh_success = ecdh_shared_secret_files(client_temp_sk_path, as_temp_pk_path, &shared_secret, &shared_secret_length);
 	if(client_ecdh_success != 1) {
-			fprintf(stderr, "Client.c: ecdh_shared_secret_files() failed [step 3]");
+			fprintf(stderr, "Client.c: ecdh_shared_secret_files() failed [step 3]\n");
 			return EXIT_FAILURE;
 	}
 
-	unsigned char *Key_Client_AS[32]; //Need to allocate memory, since sha256_bytes() does not
-	size_t Key_Client_AS_hash_len = 0; 
-	int client_ss_hash_success = sha256_bytes(shared_secret, &Key_Client_AS_hash_len, &Key_Client_AS);
-
+	int client_ss_hash_success = sha256_bytes(shared_secret, shared_secret_length, key_client_as);
 	if (client_ss_hash_success != 1) {
-		fprintf(stderr, "Client.c: Failed to hash sharedsecret [step 3]");
+		fprintf(stderr, "Client.c: Failed to hash sharedsecret [step 3]\n");
 		return EXIT_FAILURE;		
 	}
 
@@ -193,22 +189,19 @@ int main(int argc, char *argv[]) {
 	int read_KeyClientAS_success = read_hex_file_bytes("Key_Client_AS.txt", &Key_Client_AS_bytes, &Key_Client_AS_bytes_len);
 
 	if (read_KeyClientAS_success != 1) {
-		fprintf(stderr, "Client.c: Failed to read Key_Client_AS.txt [step 3]");
+		fprintf(stderr, "Client.c: Failed to read Key_Client_AS.txt [step 3]\n");
 		return EXIT_FAILURE;		
 	}
 
-	//byte-by-byte comparison
-	//int byte1, byte2;
-	//long position = 0;
-	//while(1) {
-	//	client_SS = fgetc(shared_secret)
-	//	AS_SS = fgetc(key_client_as)
-
-	for (size_t i = 0; i < Key_Client_AS_hash_len; i++) {
-		if (Key_Client_AS[i] != Key_Client_AS_bytes[i]) {
-			fpprintf(stderr, "Client.c: Symmetric keys do not match!");
-			return EXIT_FAILURE;	
-		}		
+	if(Key_Client_AS_bytes_len != 32) {
+		fprintf(stderr, "Client.c: Key_client_AS is not 32 bytes\n");
+		return EXIT_FAILURE;
+	}
+	if (memcmp(key_client_as, Key_Client_AS_bytes, 32) != 0) {
+		fprintf(stderr, "Client.c: Symmetric keys do not match [step 3]\n");
+		free(shared_secret);
+		free(Key_Client_AS_bytes);
+		return EXIT_FAILURE;
 	}
 
 //STEP 4: Decrypt AS_REP
@@ -233,39 +226,39 @@ int main(int argc, char *argv[]) {
 	//it is encrypted in the kdc using key_client_as ---> we will decrypt with the same
 
 	unsigned char *AS_REP_bytes = NULL;
-	int AS_REP_bytes_len = 0;
+	size_t AS_REP_bytes_len = 0;
 	int read_ASREP_success = read_hex_file_bytes("AS_REP.txt", &AS_REP_bytes, &AS_REP_bytes_len);
 
 	if (read_ASREP_success != 1) {
-		fprintf(stderr, "Client.c: Failed to read AS_REP.txt [step 4]");
+		fprintf(stderr, "Client.c: Failed to read AS_REP.txt [step 4]\n");
 		return EXIT_FAILURE;		
 	}
 
 	int AS_REP_plaintext_len = 0;	
 	unsigned char *AS_REP_plaintext = NULL;
-	int decrypt_ASREP_success = aes256_decrypt(
-								Key_Client_AS_bytes, 
+	int decrypt_ASREP_success = aes256_ecb_decrypt(
+								key_client_as, 
 								AS_REP_bytes, 
-								AS_REP_bytes_len, 
+								(int)AS_REP_bytes_len, 
 								&AS_REP_plaintext, 
 								&AS_REP_plaintext_len);
 
 	if(decrypt_ASREP_success != 1) {
-		fprintf(stderr, "Client.c: AS_REP decryption FAILED\n [step 4]");
+		fprintf(stderr, "Client.c: AS_REP decryption FAILED\n [step 4]\n");
 		free(AS_REP_bytes);
 		free(AS_REP_plaintext);
 		return EXIT_FAILURE;
 	}
 
 	if(AS_REP_plaintext_len < 32) {
-		fprintf(stderr, "Client.c: AS_REP_plaintext is less than 32 bytes [step 4]");
+		fprintf(stderr, "Client.c: AS_REP_plaintext is less than 32 bytes [step 4]\n");
 		free(AS_REP_bytes);
 		free(AS_REP_plaintext);
 		return EXIT_FAILURE;
 	}
 
 	//first 32 bytes into key_client_tgs
-	unsigned char key_client_tgs[32];
+	//key_client_tgs declared earlier
 	memcpy(key_client_tgs, AS_REP_plaintext, 32);
 
 	//copy [32:] bytes into key_client_tgt
@@ -278,7 +271,6 @@ int main(int argc, char *argv[]) {
 	free(AS_REP_plaintext);
 
 //STEP 5: Create TGS_REQ (only once)
-{
 	/* ------------------------------------------------------------
 	 * STEP 5: Create TGS_REQ (only once)
 	 *
@@ -309,23 +301,20 @@ int main(int argc, char *argv[]) {
 										(const unsigned char *)"Client",
 										plaintext_len,
 										&Auth_Client_TGS_hex);
-		if (!success_aes256_encrypt != 1) {
+		if (success_aes256_encrypt != 1) {
 			fprintf(stderr, "Client.c: failed to encrypt Auth_Client_TGS [step 5]\n");
 			return EXIT_FAILURE;
 		}
 		int success_write_to_TGS_REQ = write_text_lines("TGS_REQ.txt", TGT_hex, Auth_Client_TGS_hex, "Service");
-		if (!success_aes256_encrypt != 1 || !success_write_to_TGS_REQ != 1) {
+		if (success_write_to_TGS_REQ != 1) {
 			fprintf(stderr, "Client.c: failed to create TGS_REQ.txt [step 5]\n");
 			return EXIT_FAILURE;
 		}
 		free(Auth_Client_TGS_hex);		
 	}
 	free(TGT_hex);
-}
 
-	
 //STEP 6: Wait for TGS response
-{
 		/* ------------------------------------------------------------
 	 *
 	 * TGS writes "TGS_REP.txt" when ready.
@@ -341,7 +330,6 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "TGS_REP does not exist: exiting gracefully [step 6]\n");
 		exit(EXIT_SUCCESS);
 	}
-}
 
 	/* ------------------------------------------------------------
 	 * STEP 7: Recover Key_Client_App
@@ -362,21 +350,32 @@ int main(int argc, char *argv[]) {
 	 *  - Store exactly 32 bytes in key_client_app
 	 */
 
-	unsigned char* second_line_TGS = read_line("TGS_REP.txt", 2); //(hex, AES key_client_tgs)
+	char* second_line_TGS = read_line("TGS_REP.txt", 2); //(hex, AES key_client_tgs)
 
 
-	unsigned char *Key_Client_App = NULL; //bytes
-	int Key_Client_App_length;
-	int aes_decrypt_success_tgs = aes256_decrypt_hex_string_to_bytes(key_client_tgs, second_line_TGS, &Key_Client_App, &Key_Client_App_length);
+	//unsigned char *Key_Client_App = NULL; //bytes
+	size_t Key_Client_App_length;
+	unsigned char *Key_Client_App = NULL;
+	int aes_decrypt_success_tgs = aes256_decrypt_hex_string_to_bytes(
+								key_client_tgs,
+								second_line_TGS,
+								&Key_Client_App,
+								&Key_Client_App_length
+								);
 	
 	if(aes_decrypt_success_tgs != 1) {
-		fprintf(stderr, "Client.c: failed to decrypt TGS_REP.txt [step 7]");
+		fprintf(stderr, "Client.c: failed to decrypt TGS_REP.txt [step 7]\n");
+		return EXIT_FAILURE;
 	}
 	
 	if(Key_Client_App_length != 32) {
-		fprintf(stderr, "Client.c: Key_Client_app is not 32 bytes");
+		fprintf(stderr, "Client.c: Key_Client_app is not 32 bytes\n");
+		free(Key_Client_App);
 		return EXIT_FAILURE;
 	}
+
+	memcpy(key_client_app, Key_Client_App, 32);
+	free(Key_Client_App);
 	/* ------------------------------------------------------------
 	 * STEP 8: Create APP_REQ
 	 *
@@ -395,23 +394,35 @@ int main(int argc, char *argv[]) {
 	 *  - Write both values to "APP_REQ.txt"
 	 */
 
-	size_t Auth_Client_App_len;
 	char *Auth_Client_App = NULL;
+	size_t plaintext_len = strlen("Client");
 	int app_req_encrypt_success = aes256_encrypt_bytes_to_hex_string(
-									Key_Client_App,
+									key_client_app,
 									(const unsigned char *)"Client",
-									Auth_Client_App_len,
+									plaintext_len,
 									&Auth_Client_App
 									);
 	
 	if (app_req_encrypt_success != 1) {
-		fprintf(stderr, "client.c: Failed to encrypt APP_REQ");
+		fprintf(stderr, "client.c: Failed to encrypt APP_REQ\n");
 		return EXIT_FAILURE;
 	}
 
-	unsigned char* Ticket_App = read_line("TGS_REP.txt", 1);
+	char* Ticket_App = read_line("TGS_REP.txt", 1);
 
-	write_text_lines("APP_REQ.txt", Ticket_App, auth_client_app);
+	int write_app_req_success = write_text_lines("APP_REQ.txt", Ticket_App, Auth_Client_App, NULL);
+	if(write_app_req_success != 1) {
+		fprintf(stderr, "Client: Failed to write APP_REQ.txt [step 8]\n");
+		return EXIT_FAILURE;
+	}
+
+	free(shared_secret);
+	free(Key_Client_AS_bytes);
+	free(AS_REP_bytes);
+	free(second_line_TGS);
+	//free(Key_Client_App);
+	free(Ticket_App);
+	free(Auth_Client_App);
 
 	return EXIT_SUCCESS;
 }

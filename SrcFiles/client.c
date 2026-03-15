@@ -45,8 +45,6 @@
  * ============================================================
  */
 
-#include "RequiredFunctions.c"
-
 int main(int argc, char *argv[]) {
 
 	/* ------------------------------------------------------------
@@ -57,7 +55,7 @@ int main(int argc, char *argv[]) {
 	//confirm 3 args are present
 	if (argc != 4) {
 		fprintf(stderr,
-		        "Usage: %s <Client_temp_SK> <Client_temp_PK> <AS_temp_PK>\n",
+		        "Client.c: Usage-- %s <Client_temp_SK> <Client_temp_PK> <AS_temp_PK>\n",
 		        argv[0]);
 		return EXIT_FAILURE;
 	}
@@ -119,19 +117,13 @@ int main(int argc, char *argv[]) {
 	 *        "Client_Signature.txt"
 	 */
 
-	//int client_sk_perm_length;
-	//unsigned char *client_sk_permanent = Read_File("Client_SK.txt", &client_sk_perm_length);
-
-
 	//sign the temp public key using the clients permanent secret key
 	int ecdsasign_success = ecdsa_sign_file_to_hex("Client_SK.txt", client_temp_pk_path, "Client_Signature.txt");
 	if(!ecdsasign_success) {
-		fprintf(stderr, "failed to sign Client_temp_PK.txt\n");
+		fprintf(stderr, "Client.c: failed to sign Client_temp_PK.txt [step 1]\n");
 		return EXIT_FAILURE;
 	}
 
-//STEP 2: Wait for AS response
-//{
 	/* ------------------------------------------------------------
 	 * STEP 2: Wait for AS response
 	 *
@@ -150,19 +142,11 @@ int main(int argc, char *argv[]) {
 		usleep(100000); //starting with 100ms
 		AS_patience++;
 		if (AS_patience > 4) {
-			fprintf(stderr, "Failed to read AS_REP.txt")
+			fprintf(stderr, "Client.c: Failed to read AS_REP.txt [step 2]")
 			return EXIT_FAILURE
 		}
 	}
-//}
 
-
-
-
-
-
-//STEP 3: Derive Key_Client_AS
-//{
 	/* ------------------------------------------------------------
 	 * STEP 3: Derive Key_Client_AS
 	 *
@@ -396,75 +380,4 @@ int main(int argc, char *argv[]) {
 	write_text_lines("APP_REQ.txt", Ticket_App, auth_client_app)
 
 	return EXIT_SUCCESS;
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/*============================
-        Read from File
-==============================*/
-unsigned char* Read_File (char fileName[], int *fileLen)
-{
-    FILE *pFile;
-	pFile = fopen(fileName, "r");
-	if (pFile == NULL)
-	{
-		printf("Error opening file.\n");
-		exit(0);
-	}
-    fseek(pFile, 0L, SEEK_END);
-    int temp_size = ftell(pFile); //get file size
-    fseek(pFile, 0L, SEEK_SET);
-    unsigned char *output = (unsigned char*) malloc(temp_size + 1); //messageLength variable from main +1 for null
-	fread(output, 1, temp_size, pFile); //freads(output buffer, size of element, how many elements to read, input file)
-    output[temp_size] = '\0'; //null terminate after the data of temp_size
-	fclose(pFile);
-
-    *fileLen = temp_size;
-	return output;
-}
-/*============================
-        Write to File
-==============================*/
-void Write_File(char fileName[], char input[], int input_length){
-  FILE *pFile;
-  pFile = fopen(fileName,"w");
-  if (pFile == NULL){
-    printf("Error opening file. \n");
-    exit(0);
-  }
-  //fputs(input, pFile);
-  fwrite(input, 1, input_length, pFile);
-  fclose(pFile);
-}
-
-/*============================
-        SHA-256 Fucntion
-==============================*/
-unsigned char* Hash_SHA256(unsigned char* input, unsigned long inputlen)
-{
-    unsigned char *hash = malloc(SHA256_DIGEST_LENGTH);
-
-    EVP_MD_CTX *ctx = EVP_MD_CTX_new();
-    EVP_DigestInit_ex(ctx, EVP_sha256(), NULL);
-    EVP_DigestUpdate(ctx, input, inputlen);
-    EVP_DigestFinal_ex(ctx, hash, NULL);
-    EVP_MD_CTX_free(ctx);
-
-    return hash;
 }

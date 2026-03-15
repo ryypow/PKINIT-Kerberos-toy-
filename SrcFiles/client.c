@@ -211,13 +211,11 @@ int main(int argc, char *argv[]) {
 		}		
 	}
 
-
-
 //STEP 4: Decrypt AS_REP
 	/*
 	 * AS_REP.txt is AES-256 encrypted using Key_Client_AS.
 	 *
-	 * After decryption, the plaintext contains:
+	 * After decryption, the AS_REP_plaintext contains:
 	 *
 	 *   [ 32 bytes Key_Client_TGS ] ||
 	 *   [ ASCII hex string of TGT ]
@@ -231,39 +229,44 @@ int main(int argc, char *argv[]) {
 	 *  - Remaining bytes → TGT (hex string)
 	 */
 
-	//AS_REP.txt plaintext format: 32 bytes for TGS || ASCII hex of TGT
+	//AS_REP.txt AS_REP_plaintext format: 32 bytes for TGS || ASCII hex of TGT
 	//it is encrypted in the kdc using key_client_as ---> we will decrypt with the same
 
+	unsigned char *AS_REP_bytes = NULL;
+	int AS_REP_bytes_len = 0;
+	int read_ASREP_success = read_hex_file_bytes("AS_REP.txt", &AS_REP_bytes, &AS_REP_bytes_len);
 
-	int as_rep_cipher_length;
-	unsigned char *asrep_cipher = Read_File("AS_REP.txt", &as_rep_cipher_length);
+	if (read_ASREP_success != 1) {
+		fprintf(stderr, "Client.c: Failed to read AS_REP.txt [step 4]");
+		return EXIT_FAILURE;		
+	}
 
-	int plaintext_length;	
-	unsigned char *plaintext = NULL;
-	int decrypt_success = aes256_ecb_decrypt(key_client_as_bytes, asrep_cipher, as_rep_cipher_length, &plaintext, &plaintext_length);
-	free(asrep_cipher);
+	int AS_REP_plaintext_len = 0;	
+	unsigned char *AS_REP_plaintext = NULL;
+	int decrypt_ASREP_success = aes256_decrypt(
+								Key_Client_AS_bytes, 
+								AS_REP_bytes, 
+								AS_REP_bytes_len, 
+								&AS_REP_plaintext, 
+								&AS_REP_plaintext_len);
 
-	if(!decrypt_success || plaintext_length < 32) {
-		fprintf(stderr, "AS_REP decryption: FAILED\n");
-		return 1;
+	if(!decrypt_success != 1) {
+		fprintf(stderr, "Client.c: AS_REP decryption FAILED\n [step 4]");
+		return EXIT_FAILURE;
 	}
 
 	//first 32 bytes into key_client_tgs
 	unsigned char key_client_tgs[32];
-	memcpy(key_client_tgs, plaintext, 32); //destination, source, bytes
+	memcpy(key_client_tgs, AS_REP_plaintext, 32);
 //---> do i need to write client_TGS to a file?
 
 	//copy [32:] bytes into key_client_tgt
-	int tgt_length_hex = plaintext_length - 32; //not including the 32byte TGS
+	int tgt_length_hex = AS_REP_plaintext_len - 32; //not including the 32byte TGS
 	unsigned char *tgt_hex = malloc(tgt_length_hex + 1);
 
-	memcpy(tgt_hex, plaintext + 32, tgt_length_hex); //copy the [32:] bytes
+	memcpy(tgt_hex, AS_REP_plaintext + 32, tgt_length_hex); //copy the [32:] bytes
 	tgt_hex[tgt_length_hex] = '\0';
-	free(plaintext);
-
-	//convert TGT to hex
-	//unsigned char *key_client_tgt_hex = bytes_to_hex(key_client_tgt, &key_client_tgt_length);
-	
+	free(AS_REP_plaintext);
 
 //STEP 5: Create TGS_REQ (only once)
 {

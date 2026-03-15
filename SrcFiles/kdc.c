@@ -226,7 +226,7 @@ int main(int argc, char *argv[])
 	 *  - Store raw bytes in key_client_tgs
 	 */
 
-	char *Key_Client_TGS_hex = read_line("Key_Client_TGS_hex.txt",1);
+	char *Key_Client_TGS_hex = read_line("Key_Client_TGS.txt",1);
 	if (!Key_Client_TGS_hex) {
 		fprintf(stderr, "KDC: Failed to read Key_client_TGS_hex\n");
 		return EXIT_FAILURE;

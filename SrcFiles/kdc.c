@@ -221,16 +221,15 @@ int main(int argc, char *argv[])
 	 */
 
 	char *Key_Client_TGS = read_line("Key_Client_TGS.txt",1); //hex
-	
-	if (read_KeyClientTGS_success != 1) {
-		fprintf(stderr, "KDC: failed to read Key_client_AS [step4]");
-		return EXIT_FAILURE;
-	}
 
-	if (key_client_tgs_length != 32) {
+	if (Key_Client_TGS != 32) {
 		fprintf(stderr, "KDC: key_client_TGS is not 32 bytes [step4]");
 		return EXIT_FAILURE;
 	}
+
+	unsigned char *Key_Client_TGS_bytes = NULL;
+	size_t Key_Client_TGS_bytes_len;
+	int hex2byte_conversion_success = hex_to_bytes(Key_Client_TGS, Key_Client_TGS_bytes, Key_Client_TGS_bytes_len);
 	//free(key_client_tgs);
 
 	/* ------------------------------------------------------------
@@ -302,7 +301,7 @@ int main(int argc, char *argv[])
 	char *TGT_cipher_hex = NULL;
 	int aes_encrypt_success = aes256_encrypt_bytes_to_hex_string(
 		Key_AS_TGS_bytes, TGT_plaintext_buffer, TGT_buffer_len, &TGT_cipher_hex);
-		
+
 	if (aes_encrypt_success != 1) {
 		fprintf(stderr, "KDC: Failed to encrypt TGT [step5]");
 		return EXIT_FAILURE;
@@ -331,9 +330,33 @@ int main(int argc, char *argv[])
 	 *  - Hex-encode ciphertext
 	 *  - Write to AS_REP.txt (single line)
 	 */
+	size_t TGT_cipher_hex_length = strlen(TGT_cipher_hex);
+	size_t AS_REP_len = Key_Client_TGS_len + TGT_cipher_hex_length;
+	unsigned char *AS_REP_buffer = malloc(AS_REP_len);
+	memcpy(AS_REP_buffer, Key_Client_TGS, Key_Client_TGS_len);
+	memcpy(AS_REP_buffer + Key_Client_TGS_len, TGT_cipher_hex, TGT_cipher_hex_length);
 
-	AS_REP_len = Key_Client_TGS_len + 
+	char *as_rep_cipher_bytes = NULL;
+	int as_rep_cipher_len = 0;
+	int aes_encrypt_success = aes256_ecb_encrypt(
+		key_client_AS_bytes,
+		AS_REP_buffer,
+		AS_REP_len,
+		&as_rep_cipher_bytes,
+		&as_rep_cipher_len
+	);
+	
+	if(aes_encrypt_success != 1) {
+		fprintf(stderr, "KDC: Failed to encrypt AS_REP [step5]");
+		return EXIT_FAILURE;		
+	}
 
+	int AS_REP_writeSuccess = write_hex_file("AS_REP.txt", as_rep_cipher_bytes, as_rep_cipher_len);
+
+	if(AS_REP_writeSuccess != 1) {
+		fprintf(stderr, "KDC: Failed to write AS_REP.txt");
+		return EXIT_FAILURE;			
+	}
 	
 	return EXIT_SUCCESS;
 }

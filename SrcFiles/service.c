@@ -126,8 +126,8 @@ int main(int argc, char *argv[]) {
 	unsigned char *app_req_bytes;
 	size_t app_req_bytes_len;
 	hex_to_bytes(app_req_text, &app_req_bytes, &app_req_bytes_len);
-	printf("app_req_text: %s\n", app_req_text);
-	printf("app_req_bytes: %s\n", app_req_bytes);
+	// printf("app_req_text: %s\n", app_req_text);
+	// printf("app_req_bytes: %s\n", app_req_bytes);
 
 	unsigned char *plaintext;
 	int plaintext_length;
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
 
 	 // need to abort on malformed data still
 	unsigned char *clientID_1 = malloc(7);
-	unsigned char *key_client_app = malloc(64);
+	unsigned char *key_client_app = malloc(65);
 	for (int x = 0; x < plaintext_length; x++) {
 		if (x < plaintext_length-64) {
 			clientID_1[x] = plaintext[x];
@@ -160,6 +160,8 @@ int main(int argc, char *argv[]) {
 			key_client_app[x-6] = plaintext[x];
 		}
 	}
+	clientID_1[plaintext_length - 64] = '\0';
+	key_client_app[64] = '\0';
 	// printf("client_id: %s\n", clientID_1);
 	// printf("key_client_app: %s\n", key_client_app);
 
@@ -206,7 +208,7 @@ int main(int argc, char *argv[]) {
 	 *  - Reject the request
 	 * ------------------------------------------------------------
 	 */
-	if (strcmp(clientID_1, clientID_2) != 0) {
+	if (strcmp((char*)clientID_1, (char*)clientID_2) != 0) {
 		printf("Authentication failure\n");
 		return EXIT_FAILURE;
 	}

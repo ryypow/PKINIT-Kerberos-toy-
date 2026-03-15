@@ -5,7 +5,7 @@
 #include <openssl/sha.h>
 #include <openssl/ec.h>
 #include <openssl/rand.h>
-#include "RequiredFunctions.c" // Utility functions: Read_File, Write_File, Convert_to_Hex, SHA256, PRNG, AES-ENCrypt/decrypt, HMAC
+#include "RequiredFunctions.c"
 
 /*
  * ============================================================

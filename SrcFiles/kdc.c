@@ -5,7 +5,7 @@
 #include <openssl/sha.h>
 #include <openssl/ec.h>
 #include <openssl/rand.h>
-
+#include "RequiredFunctions.c"
 /*
  * ============================================================
  * Kerberos KDC / Authentication Server — ASSIGNMENT TEMPLATE
@@ -45,8 +45,6 @@
  * ============================================================
  */
 
-#include "RequiredFunctions.c"
-
 int main(int argc, char *argv[])
 {
 
@@ -76,8 +74,8 @@ int main(int argc, char *argv[])
 	const char *as_temp_pk_path = argv[4];
 
 	/* Buffers for cryptographic material */
-	unsigned char key_client_as[32];
-	unsigned char key_client_tgs[32];
+	//unsigned char key_client_as[32];
+	//unsigned char key_client_tgs[32];
 
 	/* ------------------------------------------------------------
 	 * STEP 0: Verify required input files exist
@@ -98,15 +96,19 @@ int main(int argc, char *argv[])
 	 */
 
 	if (!file_exists(client_sig_path)) {
-		fprintf(stderr, "KDC: client_sig_path not found");
+		fprintf(stderr, "KDC: client_sig_path not found\n");
+		return EXIT_FAILURE;
+	}
+	if (!file_exists(client_temp_pk_path)) {
+		fprintf(stderr, "KDC: client_temp_pk_path not found\n");
 		return EXIT_FAILURE;
 	}
 	if (!file_exists(as_temp_pk_path)) {
-		fprintf(stderr, "KDC: as_temp_pk_path not found");
+		fprintf(stderr, "KDC: as_temp_pk_path not found\n");
 		return EXIT_FAILURE;
 	}
 	if (!file_exists(as_temp_sk_path)) {
-		fprintf(stderr, "KDC: as_temp_sk_path not found");
+		fprintf(stderr, "KDC: as_temp_sk_path not found\n");
 		return EXIT_FAILURE;
 	}
 	/* ------------------------------------------------------------
@@ -129,9 +131,13 @@ int main(int argc, char *argv[])
 	 *  - Treat failure as an authentication failure
 	 */
 
+	if(!file_exists("Client_PK.txt")) {
+		fprintf(stderr, "KDC: Client_PK.txt not found\n");
+		return EXIT_FAILURE;
+	}
 	int verify_success = ecdsa_verify_file_from_hex("Client_PK.txt", client_temp_pk_path, client_sig_path);
 	if (!verify_success) {
-		fprintf(stderr, "KDC: client auth failed [Step1]");
+		fprintf(stderr, "KDC: client auth failed [Step1]\n");
 		return EXIT_FAILURE;
 	}
 
@@ -159,13 +165,13 @@ int main(int argc, char *argv[])
 															&shared_secret, &shared_secret_length);
 
 	if(ecdh_shared_secret_success != 1) {
-		fprintf(stderr, "KDC: ECDH failure [step2]");
+		fprintf(stderr, "KDC: ECDH failure [step2]\n");
 		return EXIT_FAILURE;
 	}
 
 	int write_SS_success = write_hex_file("shared_secret.txt", shared_secret, shared_secret_length);
 	if (write_SS_success != 1){
-		fprintf(stderr, "KDC: failed to write shared secret [step2]");
+		fprintf(stderr, "KDC: failed to write shared secret [step2]\n");
 		return EXIT_FAILURE;
 	}
 
@@ -192,13 +198,13 @@ int main(int argc, char *argv[])
 	unsigned char key_client_AS_bytes[32];
 	int hash_success = sha256_bytes(shared_secret, shared_secret_length, key_client_AS_bytes);
 	if (!hash_success) {
-		fprintf(stderr, "KDC: failed to hash [step3]");
+		fprintf(stderr, "KDC: failed to hash [step3]\n");
 		return EXIT_FAILURE;
 	}
 
 	int write_KeyClientAs_success = write_hex_file("Key_Client_AS.txt", key_client_AS_bytes, 32);
 	if (write_KeyClientAs_success != 1) {
-		fprintf(stderr, "KDC: failed to write Key_client_as.txt [step3]");
+		fprintf(stderr, "KDC: failed to write Key_client_as.txt [step3]\n");
 		return EXIT_FAILURE;
 	}
 
@@ -221,6 +227,10 @@ int main(int argc, char *argv[])
 	 */
 
 	char *Key_Client_TGS_hex = read_line("Key_Client_TGS_hex.txt",1);
+	if (!Key_Client_TGS_hex) {
+		fprintf(stderr, "KDC: Failed to read Key_client_TGS_hex\n");
+		return EXIT_FAILURE;
+	}
 	size_t Key_Client_TGS_hex_len = strlen(Key_Client_TGS_hex);
 
 	//if (Key_Client_TGS_hex_len != 64) {
@@ -234,7 +244,7 @@ int main(int argc, char *argv[])
 	int hex2byte_conversion_success = hex_to_bytes(Key_Client_TGS_hex, &Key_Client_TGS_bytes, &Key_Client_TGS_bytes_len);
 	
 	if (hex2byte_conversion_success != 1 || Key_Client_TGS_bytes_len != 32) {
-		fprintf(stderr, "KDC: Step 4 failure");
+		fprintf(stderr, "KDC: Step 4 failure\n");
 		return EXIT_FAILURE;
 	}
 
@@ -284,12 +294,12 @@ int main(int argc, char *argv[])
 	int read_KeyAStgs_toBytes_success = 
 			read_hex_file_bytes("Key_AS_TGS.txt", &Key_AS_TGS_bytes, &Key_AS_TGS_bytes_len);
 	if (!read_KeyAStgs_toBytes_success) {
-		fprintf(stderr, "KDC: Failed to read Key_AS_TGS.txt [step5]");
+		fprintf(stderr, "KDC: Failed to read Key_AS_TGS.txt [step5]\n");
 		return EXIT_FAILURE;		
 	}
 
 	if (Key_AS_TGS_bytes_len != 32) {
-		fprintf(stderr, "KDC: Key_AS_TGS must be 32 bytes [step5]");
+		fprintf(stderr, "KDC: Key_AS_TGS must be 32 bytes [step5]\n");
 		return EXIT_FAILURE;
 	}
 
@@ -306,10 +316,13 @@ int main(int argc, char *argv[])
 	//Encrypt with Key_AS_TGS
 	char *TGT_cipher_hex = NULL;
 	int aes_encrypt_success = aes256_encrypt_bytes_to_hex_string(
-		Key_AS_TGS_bytes, TGT_plaintext_buffer, TGT_buffer_len, &TGT_cipher_hex);
+									Key_AS_TGS_bytes,
+									TGT_plaintext_buffer,
+									TGT_buffer_len,
+									&TGT_cipher_hex);
 
 	if (aes_encrypt_success != 1) {
-		fprintf(stderr, "KDC: Failed to encrypt TGT [step5]");
+		fprintf(stderr, "KDC: Failed to encrypt TGT [step5]\n");
 		return EXIT_FAILURE;
 	}
 
@@ -331,7 +344,7 @@ int main(int argc, char *argv[])
 	 * ------------------------------------------------------------
 	 */
 	/* TODO:
-	 *  - Concatenate raw Key_Client_TGS_hex and TGT hex string
+	 *  - Concatenate raw Key_Client_TGS and TGT hex string
 	 *  - AES-256 encrypt using Key_Client_AS
 	 *  - Hex-encode ciphertext
 	 *  - Write to AS_REP.txt (single line)
@@ -342,27 +355,38 @@ int main(int argc, char *argv[])
 	memcpy(AS_REP_buffer, Key_Client_TGS_bytes, Key_Client_TGS_bytes_len);
 	memcpy(AS_REP_buffer + Key_Client_TGS_bytes_len, TGT_cipher_hex, TGT_cipher_hex_length);
 
-	char *as_rep_cipher_bytes = NULL;
+	unsigned char *as_rep_cipher_bytes = NULL;
 	int as_rep_cipher_len = 0;
 	int as_rep_aes_encrypt_success = aes256_ecb_encrypt(
-		key_client_AS_bytes,
-		AS_REP_buffer,
-		AS_REP_len,
-		&as_rep_cipher_bytes,
-		&as_rep_cipher_len
-	);
+										key_client_AS_bytes,
+										AS_REP_buffer,
+										(int)AS_REP_len,
+										&as_rep_cipher_bytes,
+										&as_rep_cipher_len
+									);
 	
-	if(aes_encrypt_success != 1) {
-		fprintf(stderr, "KDC: Failed to encrypt AS_REP [step5]");
+	if(as_rep_aes_encrypt_success != 1) {
+		fprintf(stderr, "KDC: Failed to encrypt AS_REP [step6]\n");
 		return EXIT_FAILURE;		
 	}
 
-	int AS_REP_writeSuccess = write_hex_file("AS_REP.txt", as_rep_cipher_bytes, as_rep_cipher_len);
+	int AS_REP_writeSuccess = write_hex_file("AS_REP.txt", as_rep_cipher_bytes, (size_t)as_rep_cipher_len);
 
 	if(AS_REP_writeSuccess != 1) {
-		fprintf(stderr, "KDC: Failed to write AS_REP.txt");
+		fprintf(stderr, "KDC: Failed to write AS_REP.txt [step6]\n");
 		return EXIT_FAILURE;			
 	}
+	
+	//Cleanup
+	free(shared_secret);
+	free(Key_Client_TGS_hex);
+	free(Key_Client_TGS_bytes);
+	free(Key_AS_TGS_bytes);
+	free(TGT_plaintext_buffer);
+	free(TGT_cipher_hex);
+	free(AS_REP_buffer);
+	free(as_rep_cipher_bytes);
+
 	
 	return EXIT_SUCCESS;
 }

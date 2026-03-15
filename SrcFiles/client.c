@@ -365,17 +365,18 @@ int main(int argc, char *argv[]) {
 	unsigned char* second_line_TGS = read_line("TGS_REP.txt", 2); //(hex, AES key_client_tgs)
 
 
-	unsigned char *plaintext_keyClient_app = NULL;
-	int plaintext_keyClient_app_length;
-	int aes_decrypt_success_tgs = aes256_decrypt_hex_string_to_bytes(key_client_tgs, second_line_TGS, &plaintext_keyClient_app, &plaintext_keyClient_app_length);
+	unsigned char *Key_Client_App = NULL; //bytes
+	int Key_Client_App_length;
+	int aes_decrypt_success_tgs = aes256_decrypt_hex_string_to_bytes(key_client_tgs, second_line_TGS, &Key_Client_App, &Key_Client_App_length);
+	
 	if(aes_decrypt_success_tgs != 1) {
-		fprintf(stderr, "failed to decrypt TGS_REP.txt");
+		fprintf(stderr, "Client.c: failed to decrypt TGS_REP.txt [step 7]");
 	}
 	
-	//copy bytes into key_client_app array
-	unsigned char key_client_app[32];// = malloc(plaintext_keyClient_app_length + 1);
-	memcpy(key_client_app, plaintext_keyClient_app, plaintext_keyClient_app_length);
-	
+	if(Key_Client_App_length != 32) {
+		fprintf(stderr, "Client.c: Key_Client_app is not 32 bytes");
+		return EXIT_FAILURE;
+	}
 	/* ------------------------------------------------------------
 	 * STEP 8: Create APP_REQ
 	 *
